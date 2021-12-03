@@ -6,7 +6,7 @@ Simplify your calls to Searpent Classy API in Python.
 
 You can install the Searpent Python SDK from PyPI:
 
-`python -m pip install searpent-classy-sdk`
+`pip install searpent-classy-sdk`
 
 The SDK is supported on Python 3.6 to 3.9.
 

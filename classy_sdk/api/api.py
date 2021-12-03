@@ -20,16 +20,20 @@ class ApiManager:
             A server response timeout in seconds, defaults to 30.
     """
 
-    def __init__(self, api_url: str = None, api_token: str = None,
-                 timeout: int = 30) -> None:
+    def __init__(
+        self, api_url: str = None, api_token: str = None, timeout: int = 30
+    ) -> None:
         self.api_url = os.environ["API_URL"] if api_url is None else api_url
         self.api_token = os.environ["API_TOKEN"] if api_token is None else api_token
         self.timeout = timeout
-        self._headers = {"Content-Type": "application/json",
-                         "x-api-key": self.api_token}
+        self._headers = {
+            "Content-Type": "application/json",
+            "x-api-key": self.api_token,
+        }
 
-    def query(self, req_type: str, url: str, data: dict = None,
-              params: dict = None) -> requests.Response:
+    def query(
+        self, req_type: str, url: str, data: dict = None, params: dict = None
+    ) -> requests.Response:
         """Sends API requests.
 
         Args:
@@ -42,8 +46,13 @@ class ApiManager:
             params (optional):
                 Additional arguments passed to the url.
         """
-        response = requests.request(req_type.upper(), url, json=data,
-                                    params=params, headers=self._headers,
-                                    timeout=self.timeout)
+        response = requests.request(
+            req_type.upper(),
+            url,
+            json=data,
+            params=params,
+            headers=self._headers,
+            timeout=self.timeout,
+        )
         response.raise_for_status()
         return response
