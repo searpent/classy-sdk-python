@@ -10,7 +10,7 @@ def convert_image(filename: str) -> str:
     Returns:
         The image converted to serializable string representation.
     """
-    with open(filename, 'rb') as file:
+    with open(filename, "rb") as file:
         converted = base64.b64encode(file.read()).decode()
     return converted
 
@@ -27,8 +27,8 @@ def extract_csv_row(filename: str, row: int) -> str:
     Returns:
         The row from the csv file as a string.
     """
-    with open(filename, 'r') as file:
-        extracted = file.readlines()[row - 1:row][0].strip('\n')
+    with open(filename, "r") as file:
+        extracted = file.readlines()[row - 1 : row][0].strip("\n")
     return extracted
 
 
@@ -42,5 +42,5 @@ def join_url(*components: str) -> str:
     Returns:
         A complete url.
     """
-    clean = [str(comp).strip('/') for comp in components]
-    return '/'.join(clean)
+    clean = [str(comp).strip("/") for comp in components]
+    return "/".join(clean)

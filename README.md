@@ -8,7 +8,7 @@ You can install the Searpent Python SDK from PyPI:
 
 `pip install searpent-classy-sdk`
 
-The SDK is supported on Python 3.6 to 3.9.
+The SDK is supported on Python 3.6 to 3.10.
 
 ## How to use
 
@@ -56,6 +56,12 @@ client.upload_photo_from_file(new_name, 'tests/data/test_image.jpg',
     Creates a new case.
 * update_case:
     Updates the case name as displayed in the Classy interface.
+* delete_case:
+    Marks the case to be deleted after a defined period.
+* cancel_delete_case:
+    Cancels the case deletion.
+* postpone_delete_case:
+    Postpones the case deletion to a requested timepoint.
 * upload_photo:
     Uploads a photo in base64 format to the case.
 * upload_photo_from_file:
@@ -72,6 +78,12 @@ client.upload_photo_from_file(new_name, 'tests/data/test_image.jpg',
     Retrieves a list of performed inspections.
 * create_inspection:
     Creates a new inspection.
+* delete_inspection:
+    Marks the inspection to be deleted after a defined period.
+* cancel_delete_inspection:
+    Cancels the inspection deletion.
+* postpone_delete_inspection:
+    Postpones the inspection deletion to a requested timepoint.
 
 ## API documentation
 
