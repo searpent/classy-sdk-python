@@ -37,6 +37,12 @@ class ClassySDK:
             Creates a new case.
         update_case:
             Updates the case name as displayed in the Classy interface.
+        delete_case:
+            Marks the case to be deleted after a defined period.
+        cancel_delete_case:
+            Cancels the case deletion.
+        postpone_delete_case:
+            Postpones the case deletion to a requested timepoint.
         upload_photo:
             Uploads a photo in base64 format to the case.
         upload_photo_from_file:
@@ -51,6 +57,12 @@ class ClassySDK:
             Retrieves a csv download url for the requested export.
         list_inspections:
             Retrieves a list of performed inspections.
+        delete_inspection:
+            Marks the inspection to be deleted after a defined period.
+        cancel_delete_inspection:
+            Cancels the inspection deletion.
+        postpone_delete_inspection:
+            Postpones the inspection deletion to a requested timepoint.
     """
 
     def __init__(
@@ -97,7 +109,7 @@ class ClassySDK:
         response = self.api.query("GET", url)
         return response.json()
 
-    def create_case(self, name: str) -> str:
+    def create_case(self, name: str) -> dict:
         """Creates a new case.
 
         The user provides their own case name, based on which Classy
@@ -114,7 +126,7 @@ class ClassySDK:
         response = self.api.query("POST", url, data)
         return response.json()
 
-    def update_case(self, case_id: str, name: str) -> requests.Response:
+    def update_case(self, case_id: str, name: str) -> dict:
         """Updates the case name as displayed in the Classy interface.
 
         Args:
@@ -124,16 +136,66 @@ class ClassySDK:
                 A new case name.
 
         Returns:
-            The response object can be used to verify the status code
-            (response.status_code) which should equal to 200.
+            The case id and the updated case name.
         """
         url = join_url(self.url, self._cases_url, case_id)
         data = {"name": name}
-        return self.api.query("PATCH", url, data)
+        response = self.api.query("PATCH", url, data)
+        return response.json()
+
+    def delete_case(self, case_id: str) -> requests.Response:
+        """Marks the case to be deleted after 3 days.
+
+        Args:
+            case_id:
+                A Searpent case id.
+
+        Returns:
+            The response object can be used to verify the status code
+            (response.status_code) which should equal to 200 for
+            successful queries.
+        """
+        url = join_url(self.url, self._cases_url, case_id, "delete")
+        return self.api.query("POST", url, data={})
+
+    def cancel_delete_case(self, case_id: str) -> requests.Response:
+        """Cancels the case deletion.
+
+        The "to be deleted" mark gets removed from the case.
+
+        Args:
+            case_id:
+                A Searpent case id.
+
+        Returns:
+            The response object can be used to verify the status code
+            (response.status_code) which should equal to 200 for
+            successful queries.
+        """
+        url = join_url(self.url, self._cases_url, case_id, "cancel-delete")
+        return self.api.query("POST", url, data={})
+
+    def postpone_delete_case(self, case_id: str, ttl: str) -> dict:
+        """
+        Postpones the case deletion to a requested timepoint.
+
+        Args:
+            case_id:
+                A Searpent case id.
+            ttl:
+                A requested deletion timepoint (ttl stands for "time-to-live")
+                in the ISO8601 format, e.g. 2023-09-01T13:00:00.000Z.
+
+        Returns:
+            The case id, its name and requested deletion timepoint.
+        """
+        url = join_url(self.url, self._cases_url, case_id)
+        data = {"ttl": ttl}
+        return self.api.query("PATCH", url, data=data).json()
 
     def upload_photo(
         self, case_id: str, base64_photo: bytes, filename: str, photo_id: str
-    ) -> str:
+    ) -> dict:
         """Uploads a photo in base64 format to the case.
 
         Args:
@@ -161,7 +223,7 @@ class ClassySDK:
 
     def upload_photo_from_file(
         self, case_id: str, file_path: str, filename: str, photo_id: str
-    ) -> str:
+    ) -> dict:
         """Uploads a photo file to the case.
 
         Args:
@@ -286,18 +348,17 @@ class ClassySDK:
     def create_inspection(
         self,
         name: str,
-        phone: str,
-        required_fields: List[Dict[str, str]] = None,
+        required_fields: List[Dict[str, str]],
+        phone: str = None,
         message: str = None,
-    ) -> str:
+        send_at: str = None,
+    ) -> dict:
         """Creates a new inspection.
 
         Args:
             name:
                 An insuser inspection name.
-            phone:
-                A phone number of the recipient.
-            required_fields (optional):
+            required_fields:
                 One or multiple fields specific to the insurer in a form
                 of a list of dictionaries. It has to contain the
                 "fieldId" and "requiredText" keys as presented below:
@@ -311,20 +372,103 @@ class ClassySDK:
                     "requiredText": "doe"
                     }
                 ]
+            phone (optional):
+                A phone number of the recipient. If the phone number
+                is defined, an SMS will be automatically sent to it.
+                Consult https://www.twilio.com/docs/glossary/what-e164
+                for required formats.
             message (optional):
                 An invitation message sent to the recipient, it has
                 to include the '%s' string that will be replaced
                 with an inspection url, e.g. "Please click on %s
                 to start inspection".
+            send_at (optional):
+                An SMS dispatch time. It must be set in the ISO8601 format,
+                e.g. 2021-09-01T13:00:00.000Z, and must be greater than
+                the current time by at least 1h.
 
         Returns:
             An inspection.
         """
+        if send_at and not phone:
+            raise ValueError(
+                "If the send_at argument is defined, the phone"
+                " argument must also be supplied"
+            )
+
         url = join_url(self.url, self._inspections_url)
-        data = {"name": name, "phone": phone, "source": self.source}
-        if required_fields is not None:
-            data.update({"requiredFields": required_fields})
+        data = {
+            "name": name,
+            "source": self.source,
+            "requiredFields": required_fields,
+        }
+
+        if phone is not None:
+            data.update({"phone": phone})
         if message is not None:
+            if "%s" not in message:
+                raise ValueError(
+                    "'%s' tag not found in the invitation message"
+                )
             data.update({"invitationMessage": message})
+        if send_at is not None:
+            data.update({"sendAt": send_at})
+
         response = self.api.query("POST", url, data)
         return response.json()
+
+    def delete_inspection(self, inspection_id: str) -> requests.Response:
+        """Marks the inspection to be deleted after 3 days.
+
+        Args:
+            inspection_id:
+                A Searpent inspection id.
+
+        Returns:
+            The response object can be used to verify the status code
+            (response.status_code) which should equal to 200 for
+            successful queries.
+        """
+        url = join_url(
+            self.url, self._inspections_url, inspection_id, "delete"
+        )
+        return self.api.query("POST", url, data={})
+
+    def cancel_delete_inspection(
+        self, inspection_id: str
+    ) -> requests.Response:
+        """Cancels the inspection deletion.
+
+        The "to be deleted" mark gets removed from the inspection.
+
+        Args:
+            inspection_id:
+                A Searpent inspection id.
+
+        Returns:
+            The response object can be used to verify the status code
+            (response.status_code) which should equal to 200 for
+            successful queries.
+        """
+        url = join_url(
+            self.url, self._inspections_url, inspection_id, "cancel-delete"
+        )
+        return self.api.query("POST", url, data={})
+
+    def postpone_delete_inspection(self, inspection_id: str, ttl: str) -> dict:
+        """
+        Postpones the inspection deletion to a requested timepoint.
+
+        Args:
+            inspection_id:
+                A Searpent inspection id.
+            ttl:
+                A requested deletion timepoint (ttl stands for "time-to-live")
+                in the ISO8601 format, e.g. 2023-09-01T13:00:00.000Z.
+
+        Returns:
+            The inspection id, its name and requested deletion timepoint.
+        """
+        url = join_url(self.url, self._inspections_url, inspection_id)
+        data = {"ttl": ttl}
+        return self.api.query("PATCH", url, data=data).json()
