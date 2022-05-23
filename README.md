@@ -52,6 +52,8 @@ client.upload_photo_from_file(new_name, 'tests/data/test_image.jpg',
     Retrieves a list of cases within an indicated time period.
 * get_case:
     Retrieves one particular case.
+* get_case_with_photos:
+    Retrieves one particular case with photos.
 * create_case:
     Creates a new case.
 * update_case:
@@ -76,10 +78,14 @@ client.upload_photo_from_file(new_name, 'tests/data/test_image.jpg',
     Retrieves a csv download url for the requested export.
 * list_inspections:
     Retrieves a list of performed inspections.
+* get_inspection:
+    Retrieves one particular inspection.
+* get_inspection_with_photos:
+    Retrieves one particular inspection with photos.
 * create_inspection:
     Creates a new inspection.
 * delete_inspection:
-    Marks the inspection to be deleted after a defined period.
+    Marks the inspection to be deleted after 3 days.
 * cancel_delete_inspection:
     Cancels the inspection deletion.
 * postpone_delete_inspection:

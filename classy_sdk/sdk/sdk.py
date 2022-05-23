@@ -33,6 +33,8 @@ class ClassySDK:
             Retrieves a list of cases within an indicated time period.
         get_case:
             Retrieves one particular case.
+        get_case_with_photos:
+            Retrieves one particular case with photos.
         create_case:
             Creates a new case.
         update_case:
@@ -57,8 +59,14 @@ class ClassySDK:
             Retrieves a csv download url for the requested export.
         list_inspections:
             Retrieves a list of performed inspections.
+        get_inspection:
+            Retrieves one particular inspection.
+        get_inspection_with_photos:
+            Retrieves one particular inspection with photos.
+        create_inspection:
+            Creates a new inspection.
         delete_inspection:
-            Marks the inspection to be deleted after a defined period.
+            Marks the inspection to be deleted after 3 days.
         cancel_delete_inspection:
             Cancels the inspection deletion.
         postpone_delete_inspection:
@@ -108,6 +116,20 @@ class ClassySDK:
         url = join_url(self.url, self._cases_url, case_id)
         response = self.api.query("GET", url)
         return response.json()
+
+    def get_case_with_photos(self, case_id: str) -> dict:
+        """Retrieves one particular case with attached photos.
+
+        Atrs:
+            case_id:
+                A Searpent case id.
+
+        Returns:
+            Metadata related to the case.
+        """
+        url = join_url(self.url, self._cases_url, case_id)
+        params = {"withPhotos": "true"}
+        return self.api.query("GET", url, params=params).json()
 
     def create_case(self, name: str) -> dict:
         """Creates a new case.
@@ -343,6 +365,33 @@ class ClassySDK:
         from_time = None if from_time is None else from_time
         to_time = None if to_time is None else to_time
         params = {"from": from_time, "to": to_time, "source": self.source}
+        return self.api.query("GET", url, params=params).json()
+
+    def get_inspection(self, inspection_id: str) -> dict:
+        """Retrieves one particular inspection.
+
+        Atrs:
+            inspection_id:
+                A Searpent inspection id.
+
+        Returns:
+            Metadata related to the inspection.
+        """
+        url = join_url(self.url, self._inspections_url, inspection_id)
+        return self.api.query("GET", url).json()
+
+    def get_inspection_with_photos(self, inspection_id: str) -> dict:
+        """Retrieves one particular inspection with attached photos.
+
+        Atrs:
+            inspection_id:
+                A Searpent inspection id.
+
+        Returns:
+            Metadata related to the inspection.
+        """
+        url = join_url(self.url, self._inspections_url, inspection_id)
+        params = {"withPhotos": "true"}
         return self.api.query("GET", url, params=params).json()
 
     def create_inspection(
