@@ -49,6 +49,10 @@ class ClassySDK:
             Uploads a photo in base64 format to the case.
         upload_photo_from_file:
             Uploads a photo file to the case.
+        upload_pdf:
+            Uploads a PDF in base64 format to the case.
+        upload_pdf_from_file:
+            Uploads a PDF file to the case.
         list_exports:
             Retrieves a list of performed exports.
         get_export:
@@ -216,14 +220,14 @@ class ClassySDK:
         return self.api.query("PATCH", url, data=data).json()
 
     def upload_photo(
-        self, case_id: str, base64_photo: bytes, filename: str, photo_id: str
+        self, case_id: str, photo_base64: bytes, filename: str, photo_id: str
     ) -> dict:
         """Uploads a photo in base64 format to the case.
 
         Args:
             case_id:
                 A Searpent case id.
-            base64_photo:
+            photo_base64:
                 A photo represented as base64.
             filename:
                 A photo filename.
@@ -235,7 +239,7 @@ class ClassySDK:
         """
         url = join_url(self.url, self._cases_url, case_id, "/upload")
         data = {
-            "photo": base64_photo.decode(),
+            "photo": photo_base64.decode(),
             "photo_id": photo_id,
             "filename": filename,
             "source": self.source,
@@ -265,6 +269,62 @@ class ClassySDK:
         data = {
             "photo": convert_image(file_path),
             "photo_id": photo_id,
+            "filename": filename,
+            "source": self.source,
+        }
+        response = self.api.query("PATCH", url, data)
+        return response.json()
+
+    def upload_pdf(
+        self, case_id: str, pdf_base64: bytes, filename: str, pdf_id: str
+    ) -> dict:
+        """Uploads a PDF in base64 format to the case.
+
+        Args:
+            case_id:
+                A Searpent case id.
+            pdf_base64:
+                A PDF represented as base64.
+            filename:
+                A PDF filename.
+            pdf_id:
+                An arbitrary PDF name as defined by the user.
+
+        Returns:
+            A PDF id assigned by the API.
+        """
+        url = join_url(self.url, self._cases_url, case_id, "/pdf/upload")
+        data = {
+            "photo": pdf_base64.decode(),
+            "photo_id": pdf_id,
+            "filename": filename,
+            "source": self.source,
+        }
+        response = self.api.query("PATCH", url, data)
+        return response.json()
+
+    def upload_pdf_from_file(
+        self, case_id: str, file_path: str, filename: str, pdf_id: str
+    ) -> dict:
+        """Uploads a PDF file to the case.
+
+        Args:
+            case_id:
+                A Searpent case id.
+            file_path:
+                A file path.
+            filename:
+                A PDF filename.
+            pdf_id:
+                An arbitrary PDF name as defined by the user.
+
+        Returns:
+            A PDF id assigned by the API.
+        """
+        url = join_url(self.url, self._cases_url, case_id, "/pdf/upload")
+        data = {
+            "photo": convert_image(file_path),
+            "photo_id": pdf_id,
             "filename": filename,
             "source": self.source,
         }

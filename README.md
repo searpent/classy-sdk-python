@@ -68,6 +68,10 @@ client.upload_photo_from_file(new_name, 'tests/data/test_image.jpg',
     Uploads a photo in base64 format to the case.
 * upload_photo_from_file:
     Uploads a photo file to the case.
+* upload_pdf:
+    Uploads a PDF in base64 format to the case.
+* upload_pdf_from_file:
+    Uploads a PDF file to the case.
 * list_exports:
     Retrieves a list of performed exports.
 * get_export:
