@@ -59,7 +59,7 @@ client.upload_photo_from_file(new_name, 'tests/data/test_image.jpg',
 * update_case:
     Updates the case name as displayed in the Classy interface.
 * delete_case:
-    Marks the case to be deleted after a defined period.
+    Marks the case to be deleted after 3 days.
 * cancel_delete_case:
     Cancels the case deletion.
 * postpone_delete_case:

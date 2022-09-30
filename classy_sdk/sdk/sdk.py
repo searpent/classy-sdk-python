@@ -1,7 +1,9 @@
+from pathlib import Path
+import uuid
 import requests
 from typing import Dict, List
 from classy_sdk import ApiManager
-from classy_sdk.utils import convert_image, join_url
+from classy_sdk.utils import convert_image, join_url, validate_iso_datetime
 
 
 class ClassySDK:
@@ -103,6 +105,8 @@ class ClassySDK:
         Returns:
             A list of cases.
         """
+        from_time = validate_iso_datetime(from_time)
+        to_time = validate_iso_datetime(to_time)
         url = join_url(self.url, self._cases_url)
         params = {"from": from_time, "to": to_time, "source": self.source}
         return self.api.query("GET", url, params=params).json()
@@ -133,9 +137,10 @@ class ClassySDK:
         """
         url = join_url(self.url, self._cases_url, case_id)
         params = {"withPhotos": "true"}
-        return self.api.query("GET", url, params=params).json()
+        response = self.api.query("GET", url, params=params)
+        return response.json()
 
-    def create_case(self, name: str) -> dict:
+    def create_case(self, name: str, metadata: list = None) -> dict:
         """Creates a new case.
 
         The user provides their own case name, based on which Classy
@@ -143,16 +148,30 @@ class ClassySDK:
 
         name:
             An arbitrary case name as defined by the user.
+        metadata (optional):
+            Additional information provided by the user. Use the
+            following format:
+            [
+                {"key": "content", "value": "content"},
+                {"key": "content", "value": "content"},
+            ]
 
         Returns:
             A new Searpent case id.
         """
         url = join_url(self.url, self._cases_url)
-        data = {"name": name, "source": self.source}
+        data = {
+            "name": name,
+            "source": self.source,
+        }
+        if metadata is not None:
+            data.update({"metadata": metadata})
         response = self.api.query("POST", url, data)
         return response.json()
 
-    def update_case(self, case_id: str, name: str) -> dict:
+    def update_case(
+        self, case_id: str, name: str, correlation_id: str = None
+    ) -> dict:
         """Updates the case name as displayed in the Classy interface.
 
         Args:
@@ -160,21 +179,32 @@ class ClassySDK:
                 A Searpent case id.
             name:
                 A new case name.
+            correlation_id (optional):
+                An id set to track the request. If not provided
+                by the user, an uuid is generated automatically.
 
         Returns:
             The case id and the updated case name.
         """
         url = join_url(self.url, self._cases_url, case_id)
-        data = {"name": name}
+        correlation_id = (
+            str(uuid.uuid4()) if not correlation_id else correlation_id
+        )
+        data = {"name": name, "correlation_id": correlation_id}
         response = self.api.query("PATCH", url, data)
         return response.json()
 
-    def delete_case(self, case_id: str) -> requests.Response:
+    def delete_case(
+        self, case_id: str, correlation_id: str = None
+    ) -> requests.Response:
         """Marks the case to be deleted after 3 days.
 
         Args:
             case_id:
                 A Searpent case id.
+            correlation_id (optional):
+                An id set to track the request. If not provided
+                by the user, an uuid is generated automatically.
 
         Returns:
             The response object can be used to verify the status code
@@ -182,9 +212,15 @@ class ClassySDK:
             successful queries.
         """
         url = join_url(self.url, self._cases_url, case_id, "delete")
-        return self.api.query("POST", url, data={})
+        correlation_id = (
+            str(uuid.uuid4()) if not correlation_id else correlation_id
+        )
+        data = {"correlation_id": correlation_id}
+        return self.api.query("POST", url, data=data)
 
-    def cancel_delete_case(self, case_id: str) -> requests.Response:
+    def cancel_delete_case(
+        self, case_id: str, correlation_id: str = None
+    ) -> requests.Response:
         """Cancels the case deletion.
 
         The "to be deleted" mark gets removed from the case.
@@ -192,6 +228,9 @@ class ClassySDK:
         Args:
             case_id:
                 A Searpent case id.
+            correlation_id (optional):
+                An id set to track the request. If not provided
+                by the user, an uuid is generated automatically.
 
         Returns:
             The response object can be used to verify the status code
@@ -199,7 +238,11 @@ class ClassySDK:
             successful queries.
         """
         url = join_url(self.url, self._cases_url, case_id, "cancel-delete")
-        return self.api.query("POST", url, data={})
+        correlation_id = (
+            str(uuid.uuid4()) if not correlation_id else correlation_id
+        )
+        data = {"correlation_id": correlation_id}
+        return self.api.query("POST", url, data=data)
 
     def postpone_delete_case(self, case_id: str, ttl: str) -> dict:
         """
@@ -210,17 +253,25 @@ class ClassySDK:
                 A Searpent case id.
             ttl:
                 A requested deletion timepoint (ttl stands for "time-to-live")
-                in the ISO8601 format, e.g. 2023-09-01T13:00:00.000Z.
+                in the ISO8601 format, e.g. 2023-09-01T13:00:00.000Z (the actual
+                deletion may take up to 48 hours though).
 
         Returns:
             The case id, its name and requested deletion timepoint.
         """
         url = join_url(self.url, self._cases_url, case_id)
         data = {"ttl": ttl}
-        return self.api.query("PATCH", url, data=data).json()
+        response = self.api.query("PATCH", url, data=data)
+        return response.json()
 
     def upload_photo(
-        self, case_id: str, photo_base64: bytes, filename: str, photo_id: str
+        self,
+        case_id: str,
+        photo_base64: bytes,
+        filename: str,
+        photo_id: str,
+        correlation_id: str = None,
+        metadata: list = None,
     ) -> dict:
         """Uploads a photo in base64 format to the case.
 
@@ -233,22 +284,45 @@ class ClassySDK:
                 A photo filename.
             photo_id:
                 An arbitrary photo name as defined by the user.
+            correlation_id (optional):
+                An id set to track the request. If not provided
+                by the user, an uuid is generated automatically.
+            metadata (optional):
+                Additional information provided by the user. Use the
+                following format:
+                [
+                    {"key": "content", "value": "content"},
+                    {"key": "content", "value": "content"},
+                ]
 
         Returns:
             A photo id assigned by the API.
         """
         url = join_url(self.url, self._cases_url, case_id, "/upload")
+        correlation_id = (
+            str(uuid.uuid4()) if not correlation_id else correlation_id
+        )
         data = {
             "photo": photo_base64.decode(),
             "photo_id": photo_id,
             "filename": filename,
             "source": self.source,
+            "correlation_id": correlation_id,
         }
+        if metadata is not None:
+            data.update({"metadata": metadata})
+
         response = self.api.query("PATCH", url, data)
         return response.json()
 
     def upload_photo_from_file(
-        self, case_id: str, file_path: str, filename: str, photo_id: str
+        self,
+        case_id: str,
+        file_path: str,
+        filename: str,
+        photo_id: str,
+        correlation_id: str = None,
+        metadata: list = None,
     ) -> dict:
         """Uploads a photo file to the case.
 
@@ -261,22 +335,45 @@ class ClassySDK:
                 A photo filename.
             photo_id:
                 An arbitrary photo name as defined by the user.
+            correlation_id (optional):
+                An id set to track the request. If not provided
+                by the user, an uuid is generated automatically.
+            metadata (optional):
+                Additional information provided by the user. Use the
+                following format:
+                [
+                    {"key": "content", "value": "content"},
+                    {"key": "content", "value": "content"},
+                ]
 
         Returns:
             A photo id assigned by the API.
         """
         url = join_url(self.url, self._cases_url, case_id, "/upload")
+        correlation_id = (
+            str(uuid.uuid4()) if not correlation_id else correlation_id
+        )
         data = {
             "photo": convert_image(file_path),
             "photo_id": photo_id,
             "filename": filename,
             "source": self.source,
+            "correlation_id": correlation_id,
         }
+        if metadata is not None:
+            data.update({"metadata": metadata})
+
         response = self.api.query("PATCH", url, data)
         return response.json()
 
     def upload_pdf(
-        self, case_id: str, pdf_base64: bytes, filename: str, pdf_id: str
+        self,
+        case_id: str,
+        pdf_base64: bytes,
+        filename: str,
+        pdf_id: str,
+        correlation_id: str = None,
+        metadata: list = None,
     ) -> dict:
         """Uploads a PDF in base64 format to the case.
 
@@ -289,22 +386,48 @@ class ClassySDK:
                 A PDF filename.
             pdf_id:
                 An arbitrary PDF name as defined by the user.
+            correlation_id (optional):
+                An id set to track the request. If not provided
+                by the user, an uuid is generated automatically.
+            metadata (optional):
+                Additional information provided by the user. Use the
+                following format:
+                [
+                    {"key": "content", "value": "content"},
+                    {"key": "content", "value": "content"},
+                ]
 
         Returns:
             A PDF id assigned by the API.
         """
+        if Path(filename).suffix != ".pdf":
+            raise ValueError("Filename must end with .pdf extension")
+
         url = join_url(self.url, self._cases_url, case_id, "/pdf/upload")
+        correlation_id = (
+            str(uuid.uuid4()) if not correlation_id else correlation_id
+        )
         data = {
             "photo": pdf_base64.decode(),
             "photo_id": pdf_id,
             "filename": filename,
             "source": self.source,
+            "correlation_id": correlation_id,
         }
+        if metadata is not None:
+            data.update({"metadata": metadata})
+
         response = self.api.query("PATCH", url, data)
         return response.json()
 
     def upload_pdf_from_file(
-        self, case_id: str, file_path: str, filename: str, pdf_id: str
+        self,
+        case_id: str,
+        file_path: str,
+        filename: str,
+        pdf_id: str,
+        correlation_id: str = None,
+        metadata: list = None,
     ) -> dict:
         """Uploads a PDF file to the case.
 
@@ -317,17 +440,39 @@ class ClassySDK:
                 A PDF filename.
             pdf_id:
                 An arbitrary PDF name as defined by the user.
+            correlation_id (optional):
+                An id set to track the request. If not provided
+                by the user, an uuid is generated automatically.
+            metadata (optional):
+                Additional information provided by the user. Use the
+                following format:
+                [
+                    {"key": "content", "value": "content"},
+                    {"key": "content", "value": "content"},
+                ]
 
         Returns:
             A PDF id assigned by the API.
         """
+        if Path(file_path).suffix != ".pdf" or Path(filename).suffix != ".pdf":
+            raise ValueError(
+                "File path and filename must both end with .pdf extension"
+            )
+
         url = join_url(self.url, self._cases_url, case_id, "/pdf/upload")
+        correlation_id = (
+            str(uuid.uuid4()) if not correlation_id else correlation_id
+        )
         data = {
             "photo": convert_image(file_path),
             "photo_id": pdf_id,
             "filename": filename,
             "source": self.source,
+            "correlation_id": correlation_id,
         }
+        if metadata is not None:
+            data.update({"metadata": metadata})
+
         response = self.api.query("PATCH", url, data)
         return response.json()
 
@@ -336,7 +481,12 @@ class ClassySDK:
     ) -> list:
         """Retrieves a list of performed exports.
 
-        There are two types of exports to pick from: 'regular' or 'custom'.
+        There are two types of exports to pick from:
+        'regular' or 'custom'.
+
+        If from_time and to_time are not specified, only inspections
+        which have less than 90 days will be returned if available.
+        An empty array will be returned otherwise.
 
         Args:
             exp_type:
@@ -349,16 +499,19 @@ class ClassySDK:
         Returns:
             A list of exports performed by the user.
         """
+        from_time = (
+            None if from_time is None else validate_iso_datetime(from_time)
+        )
+        to_time = None if to_time is None else validate_iso_datetime(to_time)
         url = join_url(self.url, self._exports_url)
-        from_time = None if from_time is None else from_time
-        to_time = None if to_time is None else to_time
         params = {
             "from": from_time,
             "to": to_time,
             "source": self.source,
             "type": exp_type,
         }
-        return self.api.query("GET", url, params=params).json()
+        response = self.api.query("GET", url, params=params)
+        return response.json()
 
     def get_export(self, exp_id: str) -> dict:
         """Retrieves one particular export.
@@ -412,6 +565,10 @@ class ClassySDK:
     ) -> list:
         """Retrieves a list of performed inspections.
 
+        If from_time and to_time not specified, inspections
+        no older than 90 days will be returned if available,
+        an empty array otherwise.
+
         Args:
             from_time (optional):
                 Start time, e.g. '2021-09-01T15:00:00.000Z'.
@@ -421,11 +578,14 @@ class ClassySDK:
         Returns:
             A list of inspections performed by the user.
         """
+        from_time = (
+            None if from_time is None else validate_iso_datetime(from_time)
+        )
+        to_time = None if to_time is None else validate_iso_datetime(to_time)
         url = join_url(self.url, self._inspections_url)
-        from_time = None if from_time is None else from_time
-        to_time = None if to_time is None else to_time
         params = {"from": from_time, "to": to_time, "source": self.source}
-        return self.api.query("GET", url, params=params).json()
+        response = self.api.query("GET", url, params=params)
+        return response.json()
 
     def get_inspection(self, inspection_id: str) -> dict:
         """Retrieves one particular inspection.
@@ -438,7 +598,8 @@ class ClassySDK:
             Metadata related to the inspection.
         """
         url = join_url(self.url, self._inspections_url, inspection_id)
-        return self.api.query("GET", url).json()
+        response = self.api.query("GET", url)
+        return response.json()
 
     def get_inspection_with_photos(self, inspection_id: str) -> dict:
         """Retrieves one particular inspection with attached photos.
@@ -452,7 +613,8 @@ class ClassySDK:
         """
         url = join_url(self.url, self._inspections_url, inspection_id)
         params = {"withPhotos": "true"}
-        return self.api.query("GET", url, params=params).json()
+        response = self.api.query("GET", url, params=params)
+        return response.json()
 
     def create_inspection(
         self,
@@ -461,6 +623,7 @@ class ClassySDK:
         phone: str = None,
         message: str = None,
         send_at: str = None,
+        metadata: list = None,
     ) -> dict:
         """Creates a new inspection.
 
@@ -495,6 +658,13 @@ class ClassySDK:
                 An SMS dispatch time. It must be set in the ISO8601 format,
                 e.g. 2021-09-01T13:00:00.000Z, and must be greater than
                 the current time by at least 1h.
+            metadata (optional):
+                Additional information provided by the user. Use the
+                following format:
+                [
+                    {"key": "content", "value": "content"},
+                    {"key": "content", "value": "content"},
+                ]
 
         Returns:
             An inspection.
@@ -521,17 +691,27 @@ class ClassySDK:
                 )
             data.update({"invitationMessage": message})
         if send_at is not None:
+            send_at = validate_iso_datetime(send_at)
             data.update({"sendAt": send_at})
+        if metadata is not None:
+            data.update({"metadata": metadata})
 
         response = self.api.query("POST", url, data)
         return response.json()
 
-    def delete_inspection(self, inspection_id: str) -> requests.Response:
+    def delete_inspection(
+        self,
+        inspection_id: str,
+        correlation_id: str = None,
+    ) -> requests.Response:
         """Marks the inspection to be deleted after 3 days.
 
         Args:
             inspection_id:
                 A Searpent inspection id.
+            correlation_id (optional):
+                An id set to track the request. If not provided
+                by the user, an uuid is generated automatically.
 
         Returns:
             The response object can be used to verify the status code
@@ -541,10 +721,16 @@ class ClassySDK:
         url = join_url(
             self.url, self._inspections_url, inspection_id, "delete"
         )
-        return self.api.query("POST", url, data={})
+        correlation_id = (
+            str(uuid.uuid4()) if not correlation_id else correlation_id
+        )
+        data = {"correlation_id": correlation_id}
+        return self.api.query("POST", url, data=data)
 
     def cancel_delete_inspection(
-        self, inspection_id: str
+        self,
+        inspection_id: str,
+        correlation_id: str = None,
     ) -> requests.Response:
         """Cancels the inspection deletion.
 
@@ -553,6 +739,9 @@ class ClassySDK:
         Args:
             inspection_id:
                 A Searpent inspection id.
+            correlation_id (optional):
+                An id set to track the request. If not provided
+                by the user, an uuid is generated automatically.
 
         Returns:
             The response object can be used to verify the status code
@@ -562,7 +751,11 @@ class ClassySDK:
         url = join_url(
             self.url, self._inspections_url, inspection_id, "cancel-delete"
         )
-        return self.api.query("POST", url, data={})
+        correlation_id = (
+            str(uuid.uuid4()) if not correlation_id else correlation_id
+        )
+        data = {"correlation_id": correlation_id}
+        return self.api.query("POST", url, data=data)
 
     def postpone_delete_inspection(self, inspection_id: str, ttl: str) -> dict:
         """
@@ -579,5 +772,7 @@ class ClassySDK:
             The inspection id, its name and requested deletion timepoint.
         """
         url = join_url(self.url, self._inspections_url, inspection_id)
+        ttl = validate_iso_datetime(ttl)
         data = {"ttl": ttl}
-        return self.api.query("PATCH", url, data=data).json()
+        response = self.api.query("PATCH", url, data=data)
+        return response.json()
