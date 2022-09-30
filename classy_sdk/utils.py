@@ -1,4 +1,5 @@
 import base64
+from datetime import datetime
 
 
 def convert_image(filename: str) -> str:
@@ -44,3 +45,22 @@ def join_url(*components: str) -> str:
     """
     clean = [str(comp).strip("/") for comp in components]
     return "/".join(clean)
+
+
+def validate_iso_datetime(timepoint: str) -> bool:
+    """Validates if a timepoint has the required format.
+
+    It must be set in the ISO8601 format and UTC/Zulu timezone,
+    e.g. '2022-01-01T00:00:00.000Z'.
+
+    Args:
+        A timepoint to validate.
+    Returns:
+        An original timepoint, if valid, or raises ValueError.
+    """
+    try:
+        datetime.strptime(timepoint, "%Y-%m-%dT%H:%M:%S.%fZ")
+        return timepoint
+    except ValueError:
+        print("Error: The required format is '2022-01-01T00:00:00.000Z'")
+        raise
